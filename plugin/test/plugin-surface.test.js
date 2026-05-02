@@ -41,3 +41,10 @@ test('plugin supports refreshing SaaS job status and linking imported pages', ()
   assert.match(source, /View Draft/);
   assert.match(source, /Refresh Job Status/);
 });
+
+test('plugin can refresh jobs after callback stores the previous id as jobId', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /\$job_id = \$last_job\['id'\] \?\? \$last_job\['jobId'\] \?\? '';/);
+  assert.match(source, /name="ai_design_refresh_job" value="<\?php echo esc_attr\(\$job_id\); \?>"/);
+});

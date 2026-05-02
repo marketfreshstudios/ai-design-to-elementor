@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Design to Elementor
  * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
- * Version: 0.1.2
+ * Version: 0.1.3
  * Author: AI Design to WordPress
  * Requires Plugins: elementor
  */
@@ -81,11 +81,12 @@ final class AI_Design_To_Elementor_Plugin {
     }
 
     private static function render_job_actions(array $last_job): void {
-        if (!empty($last_job['id']) && get_option(self::OPTION_API_BASE, '') !== '') {
+        $job_id = $last_job['id'] ?? $last_job['jobId'] ?? '';
+        if ($job_id !== '' && get_option(self::OPTION_API_BASE, '') !== '') {
             ?>
             <form method="post" style="margin: 12px 0;">
                 <?php wp_nonce_field('ai_design_to_elementor_refresh'); ?>
-                <input type="hidden" name="ai_design_refresh_job" value="<?php echo esc_attr($last_job['id']); ?>" />
+                <input type="hidden" name="ai_design_refresh_job" value="<?php echo esc_attr($job_id); ?>" />
                 <?php submit_button('Refresh Job Status', 'secondary', 'ai_design_refresh_submit', false); ?>
             </form>
             <?php
