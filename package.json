@@ -1,0 +1,13 @@
+{
+  "name": "ai-design-to-wordpress",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MVP scaffold for converting public design URLs into Elementor-first WordPress site kits.",
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/run-tests.mjs"
+  },
+  "engines": {
+    "node": ">=16.15"
+  }
+}

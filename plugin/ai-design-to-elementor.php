@@ -1,0 +1,212 @@
+<?php
+/**
+ * Plugin Name: AI Design to Elementor
+ * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
+ * Version: 0.1.0
+ * Author: AI Design to WordPress
+ * Requires Plugins: elementor
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+final class AI_Design_To_Elementor_Plugin {
+    private const OPTION_API_BASE = 'ai_design_to_elementor_api_base';
+    private const OPTION_LICENSE = 'ai_design_to_elementor_license_key';
+    private const OPTION_CALLBACK_TOKEN = 'ai_design_to_elementor_callback_token';
+    private const OPTION_LAST_JOB = 'ai_design_to_elementor_last_job';
+
+    public static function boot(): void {
+        add_action('admin_menu', [self::class, 'register_admin_menu']);
+        add_action('admin_init', [self::class, 'handle_settings_save']);
+        add_action('rest_api_init', [self::class, 'register_rest_routes']);
+    }
+
+    public static function register_admin_menu(): void {
+        add_menu_page(
+            'AI Design to Elementor',
+            'AI Design',
+            'manage_options',
+            'ai-design-to-elementor',
+            [self::class, 'render_admin_page'],
+            'dashicons-layout',
+            58
+        );
+    }
+
+    public static function render_admin_page(): void {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $api_base = esc_url(get_option(self::OPTION_API_BASE, 'http://localhost:4317'));
+        $license = esc_attr(get_option(self::OPTION_LICENSE, ''));
+        $last_job = get_option(self::OPTION_LAST_JOB, []);
+        $ready = self::requirements_status();
+        ?>
+        <div class="wrap">
+            <h1>AI Design to Elementor</h1>
+            <?php if (!$ready['ok']) : ?>
+                <div class="notice notice-error"><p><?php echo esc_html(implode(' ', $ready['messages'])); ?></p></div>
+            <?php endif; ?>
+            <form method="post">
+                <?php wp_nonce_field('ai_design_to_elementor_settings'); ?>
+                <h2>Connection</h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="ai_design_api_base">Conversion API</label></th>
+                        <td><input class="regular-text" id="ai_design_api_base" name="ai_design_api_base" value="<?php echo $api_base; ?>" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="ai_design_license_key">License Key</label></th>
+                        <td><input class="regular-text" id="ai_design_license_key" name="ai_design_license_key" value="<?php echo $license; ?>" /></td>
+                    </tr>
+                </table>
+                <h2>Pages</h2>
+                <p>Enter one page per line as <code>Page Title | https://public-design-url.example</code>.</p>
+                <textarea name="ai_design_pages" rows="8" class="large-text code"></textarea>
+                <?php submit_button('Create Conversion Job', 'primary', 'ai_design_submit_job', false, $ready['ok'] ? [] : ['disabled' => 'disabled']); ?>
+            </form>
+            <?php if (!empty($last_job)) : ?>
+                <h2>Last Job</h2>
+                <pre><?php echo esc_html(wp_json_encode($last_job, JSON_PRETTY_PRINT)); ?></pre>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    public static function handle_settings_save(): void {
+        if (!current_user_can('manage_options') || !isset($_POST['ai_design_submit_job'])) {
+            return;
+        }
+
+        check_admin_referer('ai_design_to_elementor_settings');
+
+        update_option(self::OPTION_API_BASE, esc_url_raw(wp_unslash($_POST['ai_design_api_base'] ?? '')));
+        update_option(self::OPTION_LICENSE, sanitize_text_field(wp_unslash($_POST['ai_design_license_key'] ?? '')));
+
+        $token = wp_generate_password(64, false, false);
+        update_option(self::OPTION_CALLBACK_TOKEN, $token);
+
+        $pages = self::parse_pages_text(wp_unslash($_POST['ai_design_pages'] ?? ''));
+        $payload = [
+            'licenseKey' => get_option(self::OPTION_LICENSE, ''),
+            'callbackUrl' => rest_url('ai-design/v1/import'),
+            'callbackToken' => $token,
+            'pages' => $pages,
+        ];
+
+        $response = wp_remote_post(trailingslashit(get_option(self::OPTION_API_BASE, '')) . 'jobs', [
+            'timeout' => 20,
+            'headers' => ['content-type' => 'application/json'],
+            'body' => wp_json_encode($payload),
+        ]);
+
+        $body = is_wp_error($response) ? ['error' => $response->get_error_message()] : json_decode(wp_remote_retrieve_body($response), true);
+        update_option(self::OPTION_LAST_JOB, is_array($body) ? $body : ['error' => 'Invalid API response']);
+    }
+
+    public static function register_rest_routes(): void {
+        register_rest_route('ai-design/v1', '/import', [
+            'methods' => 'POST',
+            'callback' => [self::class, 'handle_import'],
+            'permission_callback' => [self::class, 'can_import'],
+        ]);
+    }
+
+    public static function can_import(WP_REST_Request $request): bool {
+        $expected = (string) get_option(self::OPTION_CALLBACK_TOKEN, '');
+        $provided = (string) $request->get_header('x-ai-design-token');
+
+        if ($expected !== '' && hash_equals($expected, $provided)) {
+            return true;
+        }
+
+        return current_user_can('manage_options');
+    }
+
+    public static function handle_import(WP_REST_Request $request): WP_REST_Response {
+        $payload = $request->get_json_params();
+        if (!is_array($payload) || ($payload['type'] ?? '') !== 'elementor-site-kit') {
+            return new WP_REST_Response(['error' => 'Invalid Elementor site kit payload'], 400);
+        }
+
+        $imported = [];
+        foreach (($payload['pages'] ?? []) as $page) {
+            $post_id = self::import_elementor_page($page);
+            $imported[] = ['title' => $page['title'] ?? '', 'postId' => $post_id];
+        }
+
+        update_option(self::OPTION_LAST_JOB, [
+            'status' => 'imported',
+            'imported' => $imported,
+            'warnings' => self::collect_warnings($payload),
+        ]);
+
+        return new WP_REST_Response(['imported' => $imported], 200);
+    }
+
+    private static function import_elementor_page(array $page): int {
+        $post_id = wp_insert_post([
+            'post_title' => sanitize_text_field($page['title'] ?? 'Generated Page'),
+            'post_name' => sanitize_title($page['slug'] ?? ($page['title'] ?? 'generated-page')),
+            'post_type' => 'page',
+            'post_status' => 'draft',
+            'post_content' => '',
+        ], true);
+
+        if (is_wp_error($post_id)) {
+            throw new RuntimeException($post_id->get_error_message());
+        }
+
+        $data = $page['elementorData']['content'] ?? [];
+        update_post_meta($post_id, '_elementor_edit_mode', 'builder');
+        update_post_meta($post_id, '_elementor_template_type', 'wp-page');
+        update_post_meta($post_id, '_elementor_version', defined('ELEMENTOR_VERSION') ? ELEMENTOR_VERSION : 'unknown');
+        update_post_meta($post_id, '_elementor_data', wp_slash(wp_json_encode($data)));
+        update_post_meta($post_id, '_ai_design_source_url', esc_url_raw($page['sourceUrl'] ?? ''));
+        update_post_meta($post_id, '_ai_design_warnings', array_map('sanitize_text_field', $page['warnings'] ?? []));
+
+        return (int) $post_id;
+    }
+
+    private static function parse_pages_text(string $text): array {
+        $pages = [];
+        foreach (preg_split('/\r\n|\r|\n/', $text) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            [$title, $url] = array_pad(array_map('trim', explode('|', $line, 2)), 2, '');
+            if ($title !== '' && $url !== '') {
+                $pages[] = ['title' => sanitize_text_field($title), 'sourceUrl' => esc_url_raw($url)];
+            }
+        }
+        return $pages;
+    }
+
+    private static function collect_warnings(array $payload): array {
+        $warnings = [];
+        foreach (($payload['pages'] ?? []) as $page) {
+            foreach (($page['warnings'] ?? []) as $warning) {
+                $warnings[] = sanitize_text_field($warning);
+            }
+        }
+        return $warnings;
+    }
+
+    private static function requirements_status(): array {
+        $messages = [];
+        if (!did_action('elementor/loaded') && !defined('ELEMENTOR_VERSION')) {
+            $messages[] = 'Elementor must be active before conversion jobs can be created.';
+        }
+        $theme = wp_get_theme();
+        if (strtolower($theme->get('Name')) !== 'hello elementor') {
+            $messages[] = 'Hello Elementor theme is recommended for predictable imports.';
+        }
+        return ['ok' => empty($messages), 'messages' => $messages];
+    }
+}
+
+AI_Design_To_Elementor_Plugin::boot();

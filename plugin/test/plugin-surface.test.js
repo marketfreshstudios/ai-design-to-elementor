@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { test } from '../../scripts/test-harness.mjs';
+
+const pluginFile = resolve('plugin/ai-design-to-elementor.php');
+
+test('plugin declares WordPress metadata, admin menu, and REST import endpoint', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /Plugin Name:\s+AI Design to Elementor/);
+  assert.match(source, /add_menu_page/);
+  assert.match(source, /register_rest_route\(\s*'ai-design\/v1'/);
+  assert.match(source, /\/import/);
+});
+
+test('plugin import endpoint verifies signed callback tokens and Elementor payloads', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /hash_equals/);
+  assert.match(source, /current_user_can\(\s*'manage_options'\s*\)/);
+  assert.match(source, /_elementor_data/);
+  assert.match(source, /wp_insert_post/);
+  assert.match(source, /update_post_meta/);
+});

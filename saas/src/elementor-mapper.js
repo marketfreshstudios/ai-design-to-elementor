@@ -1,0 +1,180 @@
+import { createElementorId } from './ids.js';
+
+export function mapSiteModelToElementorKit(model) {
+  return {
+    type: 'elementor-site-kit',
+    version: '0.1.0',
+    title: model.title,
+    siteSettings: mapSiteSettings(model.globals || {}),
+    templates: {
+      header: mapHeaderTemplate(model.header),
+      footer: mapFooterTemplate(model.footer)
+    },
+    pages: model.pages.map(mapPage)
+  };
+}
+
+function mapSiteSettings(globals) {
+  return {
+    globalColors: globals.colors || {},
+    globalFonts: globals.fonts || {}
+  };
+}
+
+function mapHeaderTemplate(header = {}) {
+  const navText = (header.navItems || []).map((item) => item.label).join(' / ');
+  return {
+    title: 'Site Header',
+    type: 'header',
+    elementorData: elementorDocument([
+      container(
+        {
+          html_tag: 'header',
+          content_width: 'boxed',
+          flex_direction: 'row',
+          justify_content: 'space-between',
+          align_items: 'center',
+          padding: linkedSpacing(24, 24, 24, 24)
+        },
+        [
+          widget('heading', { title: header.logoText || 'Site', header_size: 'h3' }),
+          widget('text-editor', { editor: navText || 'Home' })
+        ]
+      )
+    ])
+  };
+}
+
+function mapFooterTemplate(footer = {}) {
+  return {
+    title: 'Site Footer',
+    type: 'footer',
+    elementorData: elementorDocument([
+      container(
+        {
+          html_tag: 'footer',
+          content_width: 'boxed',
+          padding: linkedSpacing(32, 24, 32, 24)
+        },
+        [widget('text-editor', { editor: footer.text || '' })]
+      )
+    ])
+  };
+}
+
+function mapPage(page) {
+  const warnings = [];
+  const content = page.sections.map((section) => mapSection(section, warnings));
+
+  return {
+    title: page.title,
+    slug: page.slug,
+    sourceUrl: page.sourceUrl,
+    warnings,
+    elementorData: elementorDocument(content)
+  };
+}
+
+function mapSection(section, warnings) {
+  if (section.type === 'hero') {
+    const children = [
+      widget('heading', { title: section.heading || '', header_size: 'h1' }),
+      widget('text-editor', { editor: section.body || '' })
+    ];
+
+    if (section.cta && section.cta.label) {
+      children.push(widget('button', { text: section.cta.label, link: { url: section.cta.url || '#' } }));
+    }
+
+    return container(
+      {
+        html_tag: 'section',
+        content_width: 'boxed',
+        min_height: { unit: 'vh', size: 70, sizes: [] },
+        justify_content: 'center',
+        padding: linkedSpacing(80, 24, 80, 24)
+      },
+      children
+    );
+  }
+
+  if (section.type === 'features') {
+    const children = [
+      widget('heading', { title: section.heading || '', header_size: 'h2' }),
+      ...((section.items || []).map((item) =>
+        container(
+          {
+            html_tag: 'article',
+            padding: linkedSpacing(20, 20, 20, 20)
+          },
+          [
+            widget('heading', { title: item.title || '', header_size: 'h3' }),
+            widget('text-editor', { editor: item.body || '' })
+          ],
+          true
+        )
+      ))
+    ];
+
+    return container(
+      {
+        html_tag: 'section',
+        content_width: 'boxed',
+        padding: linkedSpacing(64, 24, 64, 24)
+      },
+      children
+    );
+  }
+
+  warnings.push(`Section type "${section.type || 'unknown'}" used custom HTML fallback.`);
+  return container(
+    {
+      html_tag: 'section',
+      content_width: 'boxed',
+      padding: linkedSpacing(48, 24, 48, 24)
+    },
+    [widget('html', { html: section.html || '<div></div>' })]
+  );
+}
+
+function elementorDocument(content) {
+  return {
+    version: '0.4',
+    title: '',
+    type: 'page',
+    page_settings: [],
+    content
+  };
+}
+
+function container(settings, elements, isInner = false) {
+  return {
+    id: createElementorId(),
+    elType: 'container',
+    isInner,
+    settings,
+    elements
+  };
+}
+
+function widget(widgetType, settings) {
+  return {
+    id: createElementorId(),
+    elType: 'widget',
+    widgetType,
+    isInner: false,
+    settings,
+    elements: []
+  };
+}
+
+function linkedSpacing(top, right, bottom, left) {
+  return {
+    unit: 'px',
+    top: String(top),
+    right: String(right),
+    bottom: String(bottom),
+    left: String(left),
+    isLinked: false
+  };
+}
