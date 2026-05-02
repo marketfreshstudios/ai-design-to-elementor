@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Design to Elementor
  * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: AI Design to WordPress
  * Requires Plugins: elementor
  */
@@ -74,13 +74,58 @@ final class AI_Design_To_Elementor_Plugin {
             <?php if (!empty($last_job)) : ?>
                 <h2>Last Job</h2>
                 <pre><?php echo esc_html(wp_json_encode($last_job, JSON_PRETTY_PRINT)); ?></pre>
+                <?php self::render_job_actions($last_job); ?>
             <?php endif; ?>
         </div>
         <?php
     }
 
+    private static function render_job_actions(array $last_job): void {
+        if (!empty($last_job['id']) && get_option(self::OPTION_API_BASE, '') !== '') {
+            ?>
+            <form method="post" style="margin: 12px 0;">
+                <?php wp_nonce_field('ai_design_to_elementor_refresh'); ?>
+                <input type="hidden" name="ai_design_refresh_job" value="<?php echo esc_attr($last_job['id']); ?>" />
+                <?php submit_button('Refresh Job Status', 'secondary', 'ai_design_refresh_submit', false); ?>
+            </form>
+            <?php
+        }
+
+        if (!empty($last_job['imported']) && is_array($last_job['imported'])) {
+            echo '<ul>';
+            foreach ($last_job['imported'] as $item) {
+                $post_id = (int) ($item['postId'] ?? 0);
+                if ($post_id <= 0) {
+                    continue;
+                }
+                $edit_link = get_edit_post_link($post_id);
+                $view_link = get_permalink($post_id);
+                echo '<li>';
+                echo esc_html($item['title'] ?? get_the_title($post_id));
+                if ($edit_link) {
+                    echo ' <a href="' . esc_url($edit_link) . '">Edit Page</a>';
+                }
+                if ($view_link) {
+                    echo ' <a href="' . esc_url($view_link) . '">View Draft</a>';
+                }
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+
     public static function handle_settings_save(): void {
-        if (!current_user_can('manage_options') || !isset($_POST['ai_design_submit_job'])) {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        if (isset($_POST['ai_design_refresh_submit'])) {
+            check_admin_referer('ai_design_to_elementor_refresh');
+            self::refresh_last_job_status(sanitize_text_field(wp_unslash($_POST['ai_design_refresh_job'] ?? '')));
+            return;
+        }
+
+        if (!isset($_POST['ai_design_submit_job'])) {
             return;
         }
 
@@ -110,6 +155,27 @@ final class AI_Design_To_Elementor_Plugin {
             'timeout' => 20,
             'headers' => ['content-type' => 'application/json'],
             'body' => wp_json_encode($payload),
+        ]);
+
+        $body = is_wp_error($response) ? ['error' => $response->get_error_message()] : json_decode(wp_remote_retrieve_body($response), true);
+        update_option(self::OPTION_LAST_JOB, is_array($body) ? $body : ['error' => 'Invalid API response']);
+    }
+
+    private static function refresh_last_job_status(string $job_id): void {
+        if ($job_id === '') {
+            update_option(self::OPTION_LAST_JOB, ['error' => 'Missing job ID.']);
+            return;
+        }
+
+        $api_base = get_option(self::OPTION_API_BASE, '');
+        if ($api_base === '') {
+            update_option(self::OPTION_LAST_JOB, ['error' => 'Conversion API is not configured.']);
+            return;
+        }
+
+        $response = wp_remote_get(trailingslashit($api_base) . 'jobs/' . rawurlencode($job_id), [
+            'timeout' => 20,
+            'headers' => ['accept' => 'application/json'],
         ]);
 
         $body = is_wp_error($response) ? ['error' => $response->get_error_message()] : json_decode(wp_remote_retrieve_body($response), true);
@@ -170,6 +236,7 @@ final class AI_Design_To_Elementor_Plugin {
 
         update_option(self::OPTION_LAST_JOB, [
             'status' => 'imported',
+            'jobId' => get_option(self::OPTION_LAST_JOB, [])['id'] ?? '',
             'imported' => $imported,
             'warnings' => self::collect_warnings($payload),
         ]);

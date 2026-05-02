@@ -31,3 +31,13 @@ test('plugin supports direct local test imports when no Conversion API is config
   assert.match(source, /create_local_site_kit/);
   assert.match(source, /Leave blank to run a direct WordPress import test/);
 });
+
+test('plugin supports refreshing SaaS job status and linking imported pages', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /ai_design_refresh_job/);
+  assert.match(source, /refresh_last_job_status/);
+  assert.match(source, /get_edit_post_link/);
+  assert.match(source, /View Draft/);
+  assert.match(source, /Refresh Job Status/);
+});
