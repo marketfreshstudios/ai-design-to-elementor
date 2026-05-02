@@ -23,3 +23,11 @@ test('plugin import endpoint verifies signed callback tokens and Elementor paylo
   assert.match(source, /wp_insert_post/);
   assert.match(source, /update_post_meta/);
 });
+
+test('plugin supports direct local test imports when no Conversion API is configured', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /run_direct_test_import/);
+  assert.match(source, /create_local_site_kit/);
+  assert.match(source, /Leave blank to run a direct WordPress import test/);
+});

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Design to Elementor
  * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: AI Design to WordPress
  * Requires Plugins: elementor
  */
@@ -40,7 +40,7 @@ final class AI_Design_To_Elementor_Plugin {
             return;
         }
 
-        $api_base = esc_url(get_option(self::OPTION_API_BASE, 'http://localhost:4317'));
+        $api_base = esc_url(get_option(self::OPTION_API_BASE, ''));
         $license = esc_attr(get_option(self::OPTION_LICENSE, ''));
         $last_job = get_option(self::OPTION_LAST_JOB, []);
         $ready = self::requirements_status();
@@ -56,7 +56,10 @@ final class AI_Design_To_Elementor_Plugin {
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row"><label for="ai_design_api_base">Conversion API</label></th>
-                        <td><input class="regular-text" id="ai_design_api_base" name="ai_design_api_base" value="<?php echo $api_base; ?>" /></td>
+                        <td>
+                            <input class="regular-text" id="ai_design_api_base" name="ai_design_api_base" value="<?php echo $api_base; ?>" />
+                            <p class="description">Leave blank to run a direct WordPress import test without the SaaS API.</p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="ai_design_license_key">License Key</label></th>
@@ -83,13 +86,19 @@ final class AI_Design_To_Elementor_Plugin {
 
         check_admin_referer('ai_design_to_elementor_settings');
 
-        update_option(self::OPTION_API_BASE, esc_url_raw(wp_unslash($_POST['ai_design_api_base'] ?? '')));
+        $api_base = esc_url_raw(wp_unslash($_POST['ai_design_api_base'] ?? ''));
+        update_option(self::OPTION_API_BASE, $api_base);
         update_option(self::OPTION_LICENSE, sanitize_text_field(wp_unslash($_POST['ai_design_license_key'] ?? '')));
 
         $token = wp_generate_password(64, false, false);
         update_option(self::OPTION_CALLBACK_TOKEN, $token);
 
         $pages = self::parse_pages_text(wp_unslash($_POST['ai_design_pages'] ?? ''));
+        if ($api_base === '') {
+            self::run_direct_test_import($pages);
+            return;
+        }
+
         $payload = [
             'licenseKey' => get_option(self::OPTION_LICENSE, ''),
             'callbackUrl' => rest_url('ai-design/v1/import'),
@@ -105,6 +114,27 @@ final class AI_Design_To_Elementor_Plugin {
 
         $body = is_wp_error($response) ? ['error' => $response->get_error_message()] : json_decode(wp_remote_retrieve_body($response), true);
         update_option(self::OPTION_LAST_JOB, is_array($body) ? $body : ['error' => 'Invalid API response']);
+    }
+
+    private static function run_direct_test_import(array $pages): void {
+        if (empty($pages)) {
+            update_option(self::OPTION_LAST_JOB, ['error' => 'Add at least one page before running direct import.']);
+            return;
+        }
+
+        $payload = self::create_local_site_kit($pages);
+        $imported = [];
+        foreach ($payload['pages'] as $page) {
+            $post_id = self::import_elementor_page($page);
+            $imported[] = ['title' => $page['title'], 'postId' => $post_id];
+        }
+
+        update_option(self::OPTION_LAST_JOB, [
+            'status' => 'imported-direct',
+            'message' => 'Direct WordPress import test completed without SaaS API.',
+            'imported' => $imported,
+            'warnings' => self::collect_warnings($payload),
+        ]);
     }
 
     public static function register_rest_routes(): void {
@@ -169,6 +199,74 @@ final class AI_Design_To_Elementor_Plugin {
         update_post_meta($post_id, '_ai_design_warnings', array_map('sanitize_text_field', $page['warnings'] ?? []));
 
         return (int) $post_id;
+    }
+
+    private static function create_local_site_kit(array $pages): array {
+        $kit_pages = [];
+        foreach ($pages as $page) {
+            $title = sanitize_text_field($page['title'] ?? 'Generated Page');
+            $source_url = esc_url_raw($page['sourceUrl'] ?? '');
+            $kit_pages[] = [
+                'title' => $title,
+                'slug' => sanitize_title($title),
+                'sourceUrl' => $source_url,
+                'warnings' => ['Direct test mode uses placeholder Elementor sections.'],
+                'elementorData' => [
+                    'content' => [
+                        self::elementor_container([
+                            self::elementor_widget('heading', [
+                                'title' => $title,
+                                'header_size' => 'h1',
+                            ]),
+                            self::elementor_widget('text-editor', [
+                                'editor' => 'Imported from ' . esc_html($source_url) . '. This validates Elementor page creation before the SaaS renderer is deployed.',
+                            ]),
+                            self::elementor_widget('button', [
+                                'text' => 'Review Source',
+                                'link' => ['url' => $source_url],
+                            ]),
+                        ]),
+                    ],
+                ],
+            ];
+        }
+
+        return [
+            'type' => 'elementor-site-kit',
+            'pages' => $kit_pages,
+        ];
+    }
+
+    private static function elementor_container(array $elements): array {
+        return [
+            'id' => substr(md5(wp_json_encode($elements) . wp_rand()), 0, 8),
+            'elType' => 'container',
+            'isInner' => false,
+            'settings' => [
+                'content_width' => 'boxed',
+                'html_tag' => 'section',
+                'padding' => [
+                    'unit' => 'px',
+                    'top' => '80',
+                    'right' => '24',
+                    'bottom' => '80',
+                    'left' => '24',
+                    'isLinked' => false,
+                ],
+            ],
+            'elements' => $elements,
+        ];
+    }
+
+    private static function elementor_widget(string $widget_type, array $settings): array {
+        return [
+            'id' => substr(md5($widget_type . wp_json_encode($settings) . wp_rand()), 0, 8),
+            'elType' => 'widget',
+            'widgetType' => $widget_type,
+            'isInner' => false,
+            'settings' => $settings,
+            'elements' => [],
+        ];
     }
 
     private static function parse_pages_text(string $text): array {
