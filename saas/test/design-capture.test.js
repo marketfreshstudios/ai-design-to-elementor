@@ -72,3 +72,11 @@ test('renderPublicDesignUrl includes capture warnings when rendering falls back'
   assert.match(result.warnings[0], /browser failed/);
   assert.match(result.warnings[1], /deterministic fallback/);
 });
+
+test('design capture source sets a persistent Playwright browser path before import', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync('saas/src/design-capture.js', 'utf8');
+
+  assert.match(source, /PLAYWRIGHT_BROWSERS_PATH/);
+  assert.match(source, /'\.cache', 'ms-playwright'/);
+});

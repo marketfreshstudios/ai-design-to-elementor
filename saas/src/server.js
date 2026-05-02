@@ -18,7 +18,7 @@ export function createServer({ store = createJobStore(), autoRun = true } = {}) 
       }
 
       if (request.method === 'GET' && request.url === '/health') {
-        return sendJson(response, 200, { ok: true, service: 'ai-design-to-wordpress-api', version: '0.2.1' });
+        return sendJson(response, 200, { ok: true, service: 'ai-design-to-wordpress-api', version: '0.2.2' });
       }
 
       const match = request.url.match(/^\/jobs\/([^/?]+)/);

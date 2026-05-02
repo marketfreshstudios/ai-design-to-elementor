@@ -15,6 +15,13 @@ test('render blueprint deploys the Node API on the free web service plan', () =>
   assert.match(blueprint, /healthCheckPath:\s+\/health/);
 });
 
+test('package installs Playwright Chromium during npm install for hosts that ignore blueprint build commands', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+
+  assert.match(pkg.scripts.postinstall, /PLAYWRIGHT_BROWSERS_PATH=\$PWD\/\.cache\/ms-playwright/);
+  assert.match(pkg.scripts.postinstall, /npx playwright install chromium/);
+});
+
 test('server health endpoint exposes the API version for deploy verification', async () => {
   const { createServer } = await import('../src/server.js');
   const responses = [];
@@ -32,5 +39,5 @@ test('server health endpoint exposes the API version for deploy verification', a
   await server.emit('request', request, response);
 
   assert.equal(responses[0].statusCode, 200);
-  assert.equal(responses[1].body.version, '0.2.1');
+  assert.equal(responses[1].body.version, '0.2.2');
 });

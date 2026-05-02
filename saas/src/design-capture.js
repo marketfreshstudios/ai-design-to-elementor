@@ -1,5 +1,10 @@
 import http from 'node:http';
 import https from 'node:https';
+import { join } from 'node:path';
+
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = join(process.cwd(), '.cache', 'ms-playwright');
+}
 
 export async function renderPublicDesignUrl(sourceUrl, capturePage = captureRenderedPage) {
   let url;

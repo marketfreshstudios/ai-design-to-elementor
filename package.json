@@ -8,6 +8,7 @@
     "playwright": "^1.44.0"
   },
   "scripts": {
+    "postinstall": "PLAYWRIGHT_BROWSERS_PATH=$PWD/.cache/ms-playwright npx playwright install chromium",
     "start": "node saas/src/server.js",
     "test": "node scripts/run-tests.mjs"
   },
