@@ -48,3 +48,12 @@ test('plugin can refresh jobs after callback stores the previous id as jobId', (
   assert.match(source, /\$job_id = \$last_job\['id'\] \?\? \$last_job\['jobId'\] \?\? '';/);
   assert.match(source, /name="ai_design_refresh_job" value="<\?php echo esc_attr\(\$job_id\); \?>"/);
 });
+
+test('plugin exposes visible version and manual job id refresh field', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /private const VERSION = '0\.1\.4'/);
+  assert.match(source, /Version <\?php echo esc_html\(self::VERSION\); \?>/);
+  assert.match(source, /Manual Job ID/);
+  assert.match(source, /ai_design_manual_job_id/);
+});

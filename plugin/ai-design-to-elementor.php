@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Design to Elementor
  * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
- * Version: 0.1.3
+ * Version: 0.1.4
  * Author: AI Design to WordPress
  * Requires Plugins: elementor
  */
@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 final class AI_Design_To_Elementor_Plugin {
+    private const VERSION = '0.1.4';
     private const OPTION_API_BASE = 'ai_design_to_elementor_api_base';
     private const OPTION_LICENSE = 'ai_design_to_elementor_license_key';
     private const OPTION_CALLBACK_TOKEN = 'ai_design_to_elementor_callback_token';
@@ -47,6 +48,7 @@ final class AI_Design_To_Elementor_Plugin {
         ?>
         <div class="wrap">
             <h1>AI Design to Elementor</h1>
+            <p><strong>Version <?php echo esc_html(self::VERSION); ?></strong></p>
             <?php if (!$ready['ok']) : ?>
                 <div class="notice notice-error"><p><?php echo esc_html(implode(' ', $ready['messages'])); ?></p></div>
             <?php endif; ?>
@@ -76,7 +78,23 @@ final class AI_Design_To_Elementor_Plugin {
                 <pre><?php echo esc_html(wp_json_encode($last_job, JSON_PRETTY_PRINT)); ?></pre>
                 <?php self::render_job_actions($last_job); ?>
             <?php endif; ?>
+            <?php self::render_manual_refresh(); ?>
         </div>
+        <?php
+    }
+
+    private static function render_manual_refresh(): void {
+        if (get_option(self::OPTION_API_BASE, '') === '') {
+            return;
+        }
+        ?>
+        <h2>Job Tools</h2>
+        <form method="post" style="margin: 12px 0;">
+            <?php wp_nonce_field('ai_design_to_elementor_refresh'); ?>
+            <label for="ai_design_manual_job_id"><strong>Manual Job ID</strong></label>
+            <input class="regular-text" id="ai_design_manual_job_id" name="ai_design_manual_job_id" placeholder="job_..." />
+            <?php submit_button('Refresh Job Status', 'secondary', 'ai_design_refresh_submit', false); ?>
+        </form>
         <?php
     }
 
@@ -122,7 +140,11 @@ final class AI_Design_To_Elementor_Plugin {
 
         if (isset($_POST['ai_design_refresh_submit'])) {
             check_admin_referer('ai_design_to_elementor_refresh');
-            self::refresh_last_job_status(sanitize_text_field(wp_unslash($_POST['ai_design_refresh_job'] ?? '')));
+            $job_id = sanitize_text_field(wp_unslash($_POST['ai_design_refresh_job'] ?? ''));
+            if ($job_id === '') {
+                $job_id = sanitize_text_field(wp_unslash($_POST['ai_design_manual_job_id'] ?? ''));
+            }
+            self::refresh_last_job_status($job_id);
             return;
         }
 
