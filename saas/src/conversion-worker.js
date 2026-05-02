@@ -1,6 +1,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { mapSiteModelToElementorKit } from './elementor-mapper.js';
+import { renderPublicDesignUrl } from './design-capture.js';
 import { slugify, validateSiteModel } from './site-model.js';
 import { updateJob } from './jobs.js';
 
@@ -86,30 +87,4 @@ export async function deliverToWordPress(callbackUrl, payload, headers = {}) {
     request.write(body);
     request.end();
   });
-}
-
-export async function renderPublicDesignUrl(sourceUrl) {
-  let url;
-  try {
-    url = new URL(sourceUrl);
-  } catch {
-    throw new Error(`inaccessible URL: ${sourceUrl}`);
-  }
-
-  return {
-    sourceUrl: url.toString(),
-    sections: [
-      {
-        type: 'hero',
-        heading: readableTitle(url.hostname),
-        body: `Imported from ${url.hostname}. Replace this generated copy after reviewing the Elementor page.`,
-        cta: { label: 'Contact Us', url: '/contact/' }
-      }
-    ],
-    assets: []
-  };
-}
-
-function readableTitle(hostname) {
-  return hostname.replace(/^www\./, '').split('.')[0].replace(/-/g, ' ');
 }

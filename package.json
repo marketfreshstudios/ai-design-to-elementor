@@ -4,6 +4,9 @@
   "private": true,
   "description": "MVP scaffold for converting public design URLs into Elementor-first WordPress site kits.",
   "type": "module",
+  "dependencies": {
+    "playwright": "^1.44.0"
+  },
   "scripts": {
     "start": "node saas/src/server.js",
     "test": "node scripts/run-tests.mjs"

@@ -19,4 +19,5 @@ npm test
 - Public URL input only; private Base44/Replit APIs are out of scope for v1.
 - Elementor-first output for the Hello theme.
 - Unknown sections use an Elementor HTML widget with a warning.
-- The current renderer is a deterministic placeholder. A production deployment should replace `renderPublicDesignUrl` with a Playwright capture and AI normalization pipeline.
+- The renderer now attempts Playwright capture first, then falls back to static HTML fetch and deterministic placeholder copy.
+- The current converter handles the first hero section. Full multi-section fidelity still needs the AI normalization pipeline.

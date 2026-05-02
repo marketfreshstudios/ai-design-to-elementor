@@ -77,13 +77,21 @@ function mapPage(page) {
 
 function mapSection(section, warnings) {
   if (section.type === 'hero') {
-    const children = [
-      widget('heading', { title: section.heading || '', header_size: 'h1' }),
-      widget('text-editor', { editor: section.body || '' })
-    ];
+    const children = [];
+
+    if (section.eyebrow) {
+      children.push(widget('text-editor', { editor: section.eyebrow }));
+    }
+
+    children.push(widget('heading', { title: section.heading || '', header_size: 'h1' }));
+    children.push(widget('text-editor', { editor: section.body || '' }));
 
     if (section.cta && section.cta.label) {
       children.push(widget('button', { text: section.cta.label, link: { url: section.cta.url || '#' } }));
+    }
+
+    if (section.image && section.image.url) {
+      children.push(widget('image', { image: { url: section.image.url, alt: section.image.alt || '' } }));
     }
 
     return container(

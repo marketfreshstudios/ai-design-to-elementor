@@ -68,3 +68,33 @@ test('mapSiteModelToElementorKit uses html fallback and warns for unknown sectio
   assert.equal(fallbackWidget.widgetType, 'html');
   assert.match(kit.pages[0].warnings[0], /custom HTML fallback/);
 });
+
+test('mapSiteModelToElementorKit maps captured hero eyebrow and image widgets', () => {
+  const kit = mapSiteModelToElementorKit({
+    title: 'Design Site',
+    globals: { colors: {}, fonts: {} },
+    pages: [
+      {
+        title: 'Home',
+        slug: 'home',
+        sourceUrl: 'https://example.com',
+        sections: [
+          {
+            type: 'hero',
+            eyebrow: 'Custom Homes',
+            heading: 'Warm modern interiors',
+            body: 'Layered materials and calm spaces.',
+            image: { url: 'https://example.com/living-room.jpg', alt: 'Living room' }
+          }
+        ]
+      }
+    ]
+  });
+
+  const widgets = kit.pages[0].elementorData.content[0].elements;
+  assert.equal(widgets[0].widgetType, 'text-editor');
+  assert.equal(widgets[0].settings.editor, 'Custom Homes');
+  assert.equal(widgets[3].widgetType, 'image');
+  assert.equal(widgets[3].settings.image.url, 'https://example.com/living-room.jpg');
+  assert.equal(widgets[3].settings.image.alt, 'Living room');
+});
