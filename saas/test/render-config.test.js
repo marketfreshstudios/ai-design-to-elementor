@@ -8,6 +8,8 @@ test('render blueprint deploys the Node API on the free web service plan', () =>
   assert.match(blueprint, /type:\s+web/);
   assert.match(blueprint, /runtime:\s+node/);
   assert.match(blueprint, /plan:\s+free/);
+  assert.match(blueprint, /PLAYWRIGHT_BROWSERS_PATH/);
+  assert.match(blueprint, /\.cache\/ms-playwright/);
   assert.match(blueprint, /npx playwright install chromium/);
   assert.match(blueprint, /startCommand:\s+npm start/);
   assert.match(blueprint, /healthCheckPath:\s+\/health/);
@@ -30,5 +32,5 @@ test('server health endpoint exposes the API version for deploy verification', a
   await server.emit('request', request, response);
 
   assert.equal(responses[0].statusCode, 200);
-  assert.equal(responses[1].body.version, '0.2.0');
+  assert.equal(responses[1].body.version, '0.2.1');
 });
