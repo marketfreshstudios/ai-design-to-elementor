@@ -17,6 +17,10 @@ export function createServer({ store = createJobStore(), autoRun = true } = {}) 
         return sendJson(response, 202, publicJob(job));
       }
 
+      if (request.method === 'GET' && request.url === '/health') {
+        return sendJson(response, 200, { ok: true, service: 'ai-design-to-wordpress-api' });
+      }
+
       const match = request.url.match(/^\/jobs\/([^/?]+)/);
       if (request.method === 'GET' && match) {
         return sendJson(response, 200, publicJob(getJob(store, match[1])));
