@@ -33,3 +33,24 @@ test('runConversionJob maps pages and posts generated artifacts to the WordPress
   assert.equal(received.payload.type, 'elementor-site-kit');
   assert.equal(received.payload.pages[0].elementorData.content[0].elements[0].settings.title, 'Imported Hero');
 });
+
+test('runConversionJob exposes renderer warnings on the completed job', async () => {
+  const store = createJobStore();
+  const job = createJob(store, {
+    licenseKey: 'lic_test',
+    callbackUrl: 'https://wp.example.com/wp-json/ai-design/v1/import',
+    pages: [{ title: 'Home', sourceUrl: 'https://design.example.com' }]
+  });
+
+  const completed = await runConversionJob(
+    store,
+    job,
+    async () => ({
+      sections: [{ type: 'hero', heading: 'Fallback Hero', body: 'Body copy.' }],
+      warnings: ['Playwright failed; used static HTML fallback.']
+    }),
+    async () => ({ ok: true })
+  );
+
+  assert.deepEqual(completed.warnings, ['Playwright failed; used static HTML fallback.']);
+});

@@ -10,8 +10,10 @@ export async function runConversionJob(store, job, renderer = renderPublicDesign
 
   try {
     const pages = [];
+    const captureWarnings = [];
     for (const page of job.pages) {
       const extracted = await renderer(page.sourceUrl);
+      captureWarnings.push(...(extracted.warnings || []));
       pages.push({
         title: page.title,
         slug: page.slug || slugify(page.title),
@@ -43,7 +45,7 @@ export async function runConversionJob(store, job, renderer = renderPublicDesign
       status: 'completed',
       creditActual: job.creditEstimate,
       artifacts,
-      warnings: artifacts.pages.flatMap((page) => page.warnings)
+      warnings: [...captureWarnings, ...artifacts.pages.flatMap((page) => page.warnings)]
     });
   } catch (error) {
     return updateJob(store, job.id, {

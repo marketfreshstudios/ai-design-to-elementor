@@ -63,3 +63,12 @@ test('renderPublicDesignUrl uses provided page content renderer before falling b
   assert.equal(result.sections[0].heading, 'Real captured headline');
   assert.equal(result.sections[0].body, 'Captured body copy.');
 });
+
+test('renderPublicDesignUrl includes capture warnings when rendering falls back', async () => {
+  const result = await renderPublicDesignUrl('https://example.com/mockup', async () => {
+    throw new Error('browser failed');
+  });
+
+  assert.match(result.warnings[0], /browser failed/);
+  assert.match(result.warnings[1], /deterministic fallback/);
+});

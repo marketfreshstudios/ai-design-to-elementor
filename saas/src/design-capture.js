@@ -9,16 +9,21 @@ export async function renderPublicDesignUrl(sourceUrl, capturePage = captureRend
     throw new Error(`inaccessible URL: ${sourceUrl}`);
   }
 
+  const warnings = [];
   try {
     const captured = await capturePage(url.toString());
     if (captured && captured.html) {
-      return extractDesignFromHtml(url.toString(), captured.html, captured);
+      return {
+        ...extractDesignFromHtml(url.toString(), captured.html, captured),
+        warnings: captured.warnings || []
+      };
     }
-  } catch {
+  } catch (error) {
+    warnings.push(`Capture failed: ${error.message}`);
     // Fall through to deterministic copy so jobs fail less often while capture matures.
   }
 
-  return fallbackDesign(url);
+  return fallbackDesign(url, warnings);
 }
 
 export async function captureRenderedPage(sourceUrl) {
@@ -201,7 +206,7 @@ function absoluteAssetUrl(sourceUrl, value) {
   }
 }
 
-function fallbackDesign(url) {
+function fallbackDesign(url, warnings = []) {
   return {
     sourceUrl: url.toString(),
     sections: [
@@ -213,7 +218,8 @@ function fallbackDesign(url) {
         image: null
       }
     ],
-    assets: []
+    assets: [],
+    warnings: [...warnings, 'Used deterministic fallback content.']
   };
 }
 
