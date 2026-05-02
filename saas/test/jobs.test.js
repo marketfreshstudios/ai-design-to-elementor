@@ -24,6 +24,18 @@ test('createJob stores a queued job and estimates credit usage per page', () => 
   assert.equal(fetched.id, job.id);
 });
 
+test('createJob preserves the callback token supplied by the WordPress plugin', () => {
+  const store = createJobStore();
+  const job = createJob(store, {
+    licenseKey: 'lic_test',
+    callbackUrl: 'https://wp.example.com/wp-json/ai-design/v1/import',
+    callbackToken: 'wp-generated-token',
+    pages: [{ title: 'Home', sourceUrl: 'https://design.example.com' }]
+  });
+
+  assert.equal(job.callbackToken, 'wp-generated-token');
+});
+
 test('createJob rejects jobs without a license, callback URL, or pages', () => {
   const store = createJobStore();
 

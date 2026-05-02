@@ -5,6 +5,7 @@
   "description": "MVP scaffold for converting public design URLs into Elementor-first WordPress site kits.",
   "type": "module",
   "scripts": {
+    "start": "node saas/src/server.js",
     "test": "node scripts/run-tests.mjs"
   },
   "engines": {

@@ -12,7 +12,7 @@ export function createJob(store, input) {
     status: 'queued',
     licenseKey: input.licenseKey,
     callbackUrl: input.callbackUrl,
-    callbackToken: createToken(),
+    callbackToken: input.callbackToken || createToken(),
     pages,
     creditEstimate: pages.length * CREDITS_PER_PAGE,
     creditActual: null,
