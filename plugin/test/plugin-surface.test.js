@@ -78,3 +78,12 @@ test('plugin uses a full screen processing overlay during conversion', () => {
   assert.match(source, /data-ai-design-submit/);
   assert.match(source, /classList\.add\('is-visible'\)/);
 });
+
+test('plugin keeps the processing overlay visible while the saved job is queued or running', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /render_processing_overlay\(\$last_job\)/);
+  assert.match(source, /\$is_active = self::ai_design_is_active_job\(\$last_job\);/);
+  assert.match(source, /ai-design-overlay <\?php echo \$is_active \? 'is-visible' : ''; \?>/);
+  assert.match(source, /ai_design_is_active_job/);
+});

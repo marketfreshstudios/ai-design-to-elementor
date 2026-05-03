@@ -80,13 +80,14 @@ final class AI_Design_To_Elementor_Plugin {
                 <?php self::render_job_actions($last_job); ?>
             <?php endif; ?>
             <?php self::render_manual_refresh(); ?>
-            <?php self::render_processing_overlay(); ?>
+            <?php self::render_processing_overlay($last_job); ?>
             <?php self::render_auto_refresh_script($last_job); ?>
         </div>
         <?php
     }
 
-    private static function render_processing_overlay(): void {
+    private static function render_processing_overlay(array $last_job): void {
+        $is_active = self::ai_design_is_active_job($last_job);
         ?>
         <style>
             .ai-design-overlay {
@@ -124,7 +125,7 @@ final class AI_Design_To_Elementor_Plugin {
                 color: #50575e;
             }
         </style>
-        <div class="ai-design-overlay" aria-live="polite" aria-busy="true">
+        <div class="ai-design-overlay <?php echo $is_active ? 'is-visible' : ''; ?>" aria-live="polite" aria-busy="true">
             <div class="ai-design-overlay__panel">
                 <span class="spinner is-active"></span>
                 <h2>Building your Elementor site kit</h2>
@@ -148,7 +149,7 @@ final class AI_Design_To_Elementor_Plugin {
 
     private static function render_progress_panel(array $last_job): void {
         $status = sanitize_text_field($last_job['status'] ?? 'unknown');
-        $is_active = in_array($status, ['queued', 'running'], true);
+        $is_active = self::ai_design_is_active_job($last_job);
         $message = $is_active ? 'Working on your Elementor site kit...' : 'Latest job status: ' . $status;
         ?>
         <div class="notice notice-info ai-design-progress" style="display:flex;align-items:center;gap:10px;padding:12px;">
@@ -182,9 +183,13 @@ final class AI_Design_To_Elementor_Plugin {
     }
 
     private static function ai_design_should_auto_refresh(array $last_job): bool {
-        $status = $last_job['status'] ?? '';
         $job_id = $last_job['id'] ?? $last_job['jobId'] ?? '';
-        return $job_id !== '' && get_option(self::OPTION_API_BASE, '') !== '' && in_array($status, ['queued', 'running'], true);
+        return $job_id !== '' && get_option(self::OPTION_API_BASE, '') !== '' && self::ai_design_is_active_job($last_job);
+    }
+
+    private static function ai_design_is_active_job(array $last_job): bool {
+        $status = $last_job['status'] ?? '';
+        return in_array($status, ['queued', 'running'], true);
     }
 
     private static function render_manual_refresh(): void {
