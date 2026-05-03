@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Design to Elementor
  * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
- * Version: 0.1.5
+ * Version: 0.1.6
  * Author: AI Design to WordPress
  * Requires Plugins: elementor
  */
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 final class AI_Design_To_Elementor_Plugin {
-    private const VERSION = '0.1.5';
+    private const VERSION = '0.1.6';
     private const OPTION_API_BASE = 'ai_design_to_elementor_api_base';
     private const OPTION_LICENSE = 'ai_design_to_elementor_license_key';
     private const OPTION_CALLBACK_TOKEN = 'ai_design_to_elementor_callback_token';
@@ -52,7 +52,7 @@ final class AI_Design_To_Elementor_Plugin {
             <?php if (!$ready['ok']) : ?>
                 <div class="notice notice-error"><p><?php echo esc_html(implode(' ', $ready['messages'])); ?></p></div>
             <?php endif; ?>
-            <form method="post">
+            <form method="post" data-ai-design-submit>
                 <?php wp_nonce_field('ai_design_to_elementor_settings'); ?>
                 <h2>Connection</h2>
                 <table class="form-table" role="presentation">
@@ -80,8 +80,69 @@ final class AI_Design_To_Elementor_Plugin {
                 <?php self::render_job_actions($last_job); ?>
             <?php endif; ?>
             <?php self::render_manual_refresh(); ?>
+            <?php self::render_processing_overlay(); ?>
             <?php self::render_auto_refresh_script($last_job); ?>
         </div>
+        <?php
+    }
+
+    private static function render_processing_overlay(): void {
+        ?>
+        <style>
+            .ai-design-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 100000;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: rgba(12, 18, 28, 0.72);
+                backdrop-filter: blur(3px);
+            }
+            .ai-design-overlay.is-visible {
+                display: flex;
+            }
+            .ai-design-overlay__panel {
+                width: min(520px, calc(100vw - 40px));
+                padding: 28px;
+                border-radius: 8px;
+                background: #fff;
+                box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+                text-align: center;
+            }
+            .ai-design-overlay__panel .spinner {
+                float: none;
+                width: 32px;
+                height: 32px;
+                margin: 0 auto 14px;
+            }
+            .ai-design-overlay__panel h2 {
+                margin: 0 0 8px;
+            }
+            .ai-design-overlay__panel p {
+                margin: 0;
+                color: #50575e;
+            }
+        </style>
+        <div class="ai-design-overlay" aria-live="polite" aria-busy="true">
+            <div class="ai-design-overlay__panel">
+                <span class="spinner is-active"></span>
+                <h2>Building your Elementor site kit</h2>
+                <p>Capturing the design, generating editable Elementor sections, and sending the import to WordPress.</p>
+            </div>
+        </div>
+        <script>
+            (function () {
+                var form = document.querySelector('[data-ai-design-submit]');
+                var overlay = document.querySelector('.ai-design-overlay');
+                if (!form || !overlay) {
+                    return;
+                }
+                form.addEventListener('submit', function () {
+                    overlay.classList.add('is-visible');
+                });
+            })();
+        </script>
         <?php
     }
 

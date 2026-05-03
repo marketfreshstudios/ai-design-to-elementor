@@ -52,7 +52,7 @@ test('plugin can refresh jobs after callback stores the previous id as jobId', (
 test('plugin exposes visible version and manual job id refresh field', () => {
   const source = readFileSync(pluginFile, 'utf8');
 
-  assert.match(source, /private const VERSION = '0\.1\.5'/);
+  assert.match(source, /private const VERSION = '0\.1\.6'/);
   assert.match(source, /Version <\?php echo esc_html\(self::VERSION\); \?>/);
   assert.match(source, /Manual Job ID/);
   assert.match(source, /ai_design_manual_job_id/);
@@ -67,4 +67,14 @@ test('plugin shows a loading progress state and auto-refreshes active jobs', () 
   assert.match(source, /ai_design_should_auto_refresh/);
   assert.match(source, /setTimeout/);
   assert.match(source, /document\.querySelector\('\[name="ai_design_refresh_submit"\]'\)/);
+});
+
+test('plugin uses a full screen processing overlay during conversion', () => {
+  const source = readFileSync(pluginFile, 'utf8');
+
+  assert.match(source, /ai-design-overlay/);
+  assert.match(source, /ai-design-overlay__panel/);
+  assert.match(source, /Building your Elementor site kit/);
+  assert.match(source, /data-ai-design-submit/);
+  assert.match(source, /classList\.add\('is-visible'\)/);
 });
