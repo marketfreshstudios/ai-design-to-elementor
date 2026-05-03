@@ -64,7 +64,7 @@ function mapFooterTemplate(footer = {}) {
 
 function mapPage(page) {
   const warnings = [];
-  const content = page.sections.map((section) => mapSection(section, warnings));
+  const content = page.sections.map((section) => mapSection(section, warnings, page));
 
   return {
     title: page.title,
@@ -75,8 +75,12 @@ function mapPage(page) {
   };
 }
 
-function mapSection(section, warnings) {
+function mapSection(section, warnings, page = {}) {
   if (section.type === 'hero') {
+    if (section.image && section.image.url) {
+      return mapSplitHero(section, page);
+    }
+
     const children = [];
 
     if (section.eyebrow) {
@@ -142,6 +146,92 @@ function mapSection(section, warnings) {
       padding: linkedSpacing(48, 24, 48, 24)
     },
     [widget('html', { html: section.html || '<div></div>' })]
+  );
+}
+
+function mapSplitHero(section, page) {
+  const textChildren = [];
+
+  if (section.eyebrow) {
+    textChildren.push(widget('text-editor', {
+      editor: section.eyebrow,
+      typography_typography: 'custom',
+      typography_font_size: { unit: 'px', size: 14, sizes: [] },
+      typography_font_weight: '600',
+      text_color: '#b68b59'
+    }));
+  }
+
+  textChildren.push(widget('heading', {
+    title: section.heading || '',
+    header_size: 'h1',
+    typography_typography: 'custom',
+    typography_font_size: { unit: 'px', size: 64, sizes: [] },
+    typography_font_weight: '600',
+    typography_line_height: { unit: 'em', size: 1.02, sizes: [] },
+    title_color: '#132017'
+  }));
+
+  textChildren.push(widget('text-editor', {
+    editor: section.body || '',
+    text_color: '#3f4a42',
+    typography_typography: 'custom',
+    typography_font_size: { unit: 'px', size: 18, sizes: [] },
+    typography_line_height: { unit: 'em', size: 1.6, sizes: [] }
+  }));
+
+  if (section.cta && section.cta.label) {
+    textChildren.push(widget('button', {
+      text: section.cta.label,
+      link: { url: section.cta.url || '#' },
+      background_color: '#132017',
+      button_text_color: '#ffffff',
+      border_radius: linkedSpacing(999, 999, 999, 999),
+      text_padding: linkedSpacing(16, 26, 16, 26)
+    }));
+  }
+
+  return container(
+    {
+      html_tag: 'section',
+      content_width: 'boxed',
+      min_height: { unit: 'vh', size: 78, sizes: [] },
+      flex_direction: 'row',
+      align_items: 'center',
+      justify_content: 'space-between',
+      gap: { unit: 'px', size: 48, sizes: [] },
+      background_background: 'classic',
+      background_color: '#f6f1ea',
+      padding: linkedSpacing(88, 24, 88, 24)
+    },
+    [
+      container(
+        {
+          html_tag: 'div',
+          width: { unit: '%', size: 52, sizes: [] },
+          justify_content: 'center',
+          gap: { unit: 'px', size: 20, sizes: [] }
+        },
+        textChildren,
+        true
+      ),
+      container(
+        {
+          html_tag: 'figure',
+          width: { unit: '%', size: 44, sizes: [] },
+          border_radius: linkedSpacing(8, 8, 8, 8),
+          overflow: 'hidden'
+        },
+        [
+          widget('image', {
+            image: { url: section.image.url, alt: section.image.alt || page.title || '' },
+            image_size: 'full',
+            width: { unit: '%', size: 100, sizes: [] }
+          })
+        ],
+        true
+      )
+    ]
   );
 }
 

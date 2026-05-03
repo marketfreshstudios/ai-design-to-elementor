@@ -91,10 +91,45 @@ test('mapSiteModelToElementorKit maps captured hero eyebrow and image widgets', 
     ]
   });
 
-  const widgets = kit.pages[0].elementorData.content[0].elements;
-  assert.equal(widgets[0].widgetType, 'text-editor');
-  assert.equal(widgets[0].settings.editor, 'Custom Homes');
-  assert.equal(widgets[3].widgetType, 'image');
-  assert.equal(widgets[3].settings.image.url, 'https://example.com/living-room.jpg');
-  assert.equal(widgets[3].settings.image.alt, 'Living room');
+  const heroColumns = kit.pages[0].elementorData.content[0].elements;
+  const textWidgets = heroColumns[0].elements;
+  const imageWidget = heroColumns[1].elements[0];
+  assert.equal(textWidgets[0].widgetType, 'text-editor');
+  assert.equal(textWidgets[0].settings.editor, 'Custom Homes');
+  assert.equal(imageWidget.widgetType, 'image');
+  assert.equal(imageWidget.settings.image.url, 'https://example.com/living-room.jpg');
+  assert.equal(imageWidget.settings.image.alt, 'Living room');
+});
+
+test('mapSiteModelToElementorKit uses a split visual hero layout when an image is captured', () => {
+  const kit = mapSiteModelToElementorKit({
+    title: 'Design Site',
+    globals: { colors: { primary: '#132017', accent: '#b68b59' }, fonts: {} },
+    pages: [
+      {
+        title: 'Home',
+        slug: 'home',
+        sourceUrl: 'https://example.com',
+        sections: [
+          {
+            type: 'hero',
+            heading: 'Where Intuition Meets Precision.',
+            body: 'We build spaces that breathe.',
+            cta: { label: 'Explore Our Work', url: '#work' },
+            image: { url: 'https://example.com/hero.png', alt: 'Custom home exterior' }
+          }
+        ]
+      }
+    ]
+  });
+
+  const hero = kit.pages[0].elementorData.content[0];
+  assert.equal(hero.settings.flex_direction, 'row');
+  assert.equal(hero.settings.gap.size, 48);
+  assert.equal(hero.settings.background_background, 'classic');
+  assert.equal(hero.elements.length, 2);
+  assert.equal(hero.elements[0].elType, 'container');
+  assert.equal(hero.elements[1].settings.width.size, 44);
+  assert.equal(hero.elements[1].elements[0].widgetType, 'image');
+  assert.equal(hero.elements[1].elements[0].settings.image_size, 'full');
 });
