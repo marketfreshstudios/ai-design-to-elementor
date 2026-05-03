@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Design to Elementor
  * Description: Converts public design URLs into Elementor-first WordPress pages using a SaaS conversion service.
- * Version: 0.1.4
+ * Version: 0.1.5
  * Author: AI Design to WordPress
  * Requires Plugins: elementor
  */
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 final class AI_Design_To_Elementor_Plugin {
-    private const VERSION = '0.1.4';
+    private const VERSION = '0.1.5';
     private const OPTION_API_BASE = 'ai_design_to_elementor_api_base';
     private const OPTION_LICENSE = 'ai_design_to_elementor_license_key';
     private const OPTION_CALLBACK_TOKEN = 'ai_design_to_elementor_callback_token';
@@ -75,12 +75,55 @@ final class AI_Design_To_Elementor_Plugin {
             </form>
             <?php if (!empty($last_job)) : ?>
                 <h2>Last Job</h2>
+                <?php self::render_progress_panel($last_job); ?>
                 <pre><?php echo esc_html(wp_json_encode($last_job, JSON_PRETTY_PRINT)); ?></pre>
                 <?php self::render_job_actions($last_job); ?>
             <?php endif; ?>
             <?php self::render_manual_refresh(); ?>
+            <?php self::render_auto_refresh_script($last_job); ?>
         </div>
         <?php
+    }
+
+    private static function render_progress_panel(array $last_job): void {
+        $status = sanitize_text_field($last_job['status'] ?? 'unknown');
+        $is_active = in_array($status, ['queued', 'running'], true);
+        $message = $is_active ? 'Working on your Elementor site kit...' : 'Latest job status: ' . $status;
+        ?>
+        <div class="notice notice-info ai-design-progress" style="display:flex;align-items:center;gap:10px;padding:12px;">
+            <?php if ($is_active) : ?>
+                <span class="spinner is-active" style="float:none;margin:0;"></span>
+            <?php endif; ?>
+            <div>
+                <strong><?php echo esc_html($message); ?></strong>
+                <?php if ($is_active) : ?>
+                    <p style="margin:4px 0 0;">Capture and Elementor generation can take 30-90 seconds. This page will refresh job status automatically.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    private static function render_auto_refresh_script(array $last_job): void {
+        if (!self::ai_design_should_auto_refresh($last_job)) {
+            return;
+        }
+        ?>
+        <script>
+            window.setTimeout(function () {
+                var button = document.querySelector('[name="ai_design_refresh_submit"]');
+                if (button && button.form) {
+                    button.form.submit();
+                }
+            }, 7000);
+        </script>
+        <?php
+    }
+
+    private static function ai_design_should_auto_refresh(array $last_job): bool {
+        $status = $last_job['status'] ?? '';
+        $job_id = $last_job['id'] ?? $last_job['jobId'] ?? '';
+        return $job_id !== '' && get_option(self::OPTION_API_BASE, '') !== '' && in_array($status, ['queued', 'running'], true);
     }
 
     private static function render_manual_refresh(): void {
